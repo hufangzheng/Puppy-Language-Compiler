@@ -5,8 +5,13 @@
     print_endline s
     flush stdout
 
+  let mk_pos i =
+    Parsing.rhs_start_pos i
+
   type A = Absyn
-  type L = Location
+  (* type L = Location *)
+
+  type S = Symbol
 %}
 
 %token EOF
@@ -39,93 +44,96 @@
 %%
 
 prog:
-  expr EOF {}
+  exp EOF { $1 }
 ;
 decs:
-  | dec {}
+  | dec { $2 }
 ;
 dec:
-  | tydec {A.TypeDec()}
-  | vardec {}
-  | fundec {}
+  | tydec { $1 }
+  | vardec { $1 }
+  | fundecs { $1 }
 ;
 tydec:
-  | TYPE ID EQUAL ty {}
+  | TYPE ID EQUAL ty { A.Tydec{name = S.symbol $1; ty = $4; pos: mk_pos 1} }
 ;
 ty:
-  | ID {}
-  | LBRACE tyfield RBRACE {}
-  | ARRAY OF ID COLON ID {}
+  | ID { A.NameTy{S.symbol $1, mk_pos 1} }
+  | LBRACE tyfields RBRACE { Ast.RecordTy( $2 ) }
+  | ARRAY OF ID COLON ID { Ast.ArrayTy(S.symbol $3, mk_pos 1) }
+;
+tyfields:
+  | epsilon { [] }
+  | tyfield { $1 }
+  | tyfields COMMA tyfield { $2 :: $1 }
 ;
 tyfield:
-  | epsilon {}
-  | ID COLON ID {}
-  | ID COLON ID COMMA tyfield {}
-;
+  | ID COLON ID { {name = S.symbol $1; escape = ref true; typ = S.symbol $3; pos = mk_pos 1} }
 vardec:
-  | VAR ID ASSIGN exp {}
+  | VAR ID ASSIGN exp { A.VarDec{name = S.symbol $1; escape = ref true; typ = None; init = $4; pos = mk_pos 1} }
 ;
+fundecs:
+           { [] }
+  | fundecs fundec { A.FunctionDec($2 :: $1) }
 fundec:
-  | FUNCTION ID LPAREN tyfield RPAREN EQUAL exp {}
+  | FUNCTION ID LPAREN tyfield RPAREN EQUAL exp { A.fundec{name = Symbol $1; params = $4; result = match $4 with Some(r) -> r | None; body = $7; pos = mk_pos 1} }
 ;
 lvalue:
-  | ID {}
-  | lvalue DOT ID {}
-  | lvalue LBRACKET exp RBRACKET {}
+  | ID { A.Ident{name = S.symbol $1; pos = mk_pos 1} }
+  | lvalue DOT ID { A.RecordAccess{record = $1; name = S.symbol $3; pos = mk_pos 1} }
+  | lvalue LBRACKET exp RBRACKET { A.ArrayAccess{array: $1; exp = $3; pos = mk_pos 1} }
 ;
 exp:
-  | lvalue {}
-  | LPAREN expseq RPAREN {}
-  | INT {}
-  | STRING {}
-  | MINUS exp {}
-  | ID LBRACE records RPRACE {}
-  | ID LPAREN funargs RPAREN {}
-  | ID LBRAKET arryindex RBRAKET OF exp {}
-  | exp op exp {}
-  | exp compar exp {}
-  | exp boolean exp {}
-  | exp ASSIGN exp {}
-  | IF exp THEN exp {}
-  | IF exp THEN exp ELSE exp {}
-  | WHILE exp DO exp {}
-  | FOR ID ASSIGN exp TO exp DO exp {}
-  | BREAK
+  | lvalue { A.LValue{l = $1; pos = mk_pos 1} }
+  | LPAREN expseq RPAREN { A.SeqExp($2) }
+  | INT { A.IntExp($1) }
+  | STRING { A.StringExp($1) }
+  | MINUS exp { A.OpExp{left = 0.; op = MINUS; right = $2; pos = mk_pos 1} }
+  | ID LBRACE records RPRACE { A.RecordExp{rec_exp_fields = $3; typ = S.symbol $1; pos = mk_pos 1} }                  (* record类型表达式 *)
+  | ID LPAREN funargs RPAREN { A.CallExp{func = S.symbol $1; args = funargs; pos = mk_pos 1} }              (* 函数调用 *)
+  | ID LBRAKET arryindex RBRAKET OF exp { A.ArrayExp{typ = S.symbol $1; size = $3; init = $6; pos = mk_pos 1} }
+  | exp op exp { A.OpExp{left = $1; op = op; right = $3; pos = mk_pos 1} }
+  | exp compar exp { A.OpExp{left = $1; op = compar; right = $3; pos = mk_pos 1} }
+  | exp boolean exp { A.OpExp{left = $1; op = boolean; right = $3; pos = mk_pos 1} }
+  | exp ASSIGN exp { A.AssignExp{var = $1; exp = $3; pos = mk_pos 1} }
+  | IF exp THEN exp { A.IfExp{test = $2; then' = $4; else' = None; pos: mk_pos 1} }
+  | IF exp THEN exp ELSE exp { A.IfExp{test = $2; then' = $4; else' = Some($6); pos = mk_pos 1} }
+  | WHILE exp DO exp { A.WhileExp{test = $2; body = $4; pos = mk_pos 1} }
+  | FOR ID ASSIGN exp TO exp DO exp { A.ForExp{var = S.symbol ID; escape = ref true; lo = $4; hi = $6; body = $8; pos = mk_pos 1} }
+  | BREAK { A.BreakExp mk_pos 1 }
 ;
 expseq:
-  | exp {}
-  | exp SEMICOLON exp {}
+  | exp { ($1, mk_pos 1) }
+  | expseq SEMICOLON exp { ($3, Parsing.rhs_start_pos 3) :: expseq }
 ;
 records:
-  | epsilon {}
-  | exp {}
-  | exp COMMA exp {}
+  | record { $1 :: [] }
+  | records COMMA record { $2 :: $1 }
 ;
+record:
+  | ID EQUAL exp { (S.symbol $1, $3, mk_pos 1) }
 funargs:
-  | epsilon {}
-  | exp {}
-  | exp COMMA exp {}
+  | epsilon { [] }
+  | exp { $1 :: [] }
+  | funargs COMMA exp { $3 :: $1 }
 ;
-arrayindex:
-  | epsilon {}
-  | exp {}
 op:
-  | PLUS {}
-  | MINUS {}
-  | TIMES {}
-  | DIVIDE {}
+  | PLUS { A.PlusOp }
+  | MINUS { A.MinusOp }
+  | TIMES { A.TimesOp }
+  | DIVIDE { A.DivideOp }
 ;
 compar:
-  | LT {}
-  | LE {}
-  | GT {}
-  | GE {}
-  | EQUAL {}
-  | NOTEQUAL {}
+  | LT { A.LtOp }
+  | LE { A.LeOp }
+  | GT { A.GtOp }
+  | GE { A.GeOp }
+  | EQUAL { A.EqOp }
+  | NOTEQUAL { A.NeqOp }
 ;
 boolean:
-  | AND {}
-  | OR {}
+  | AND { A.AndOp }
+  | OR { A.OrOp }
 ;
 
 %%
