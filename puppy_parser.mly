@@ -14,14 +14,17 @@
   type S = Symbol
 %}
 
+(* 保留关键字 *)
 %token EOF
+%token NIL
+%token VAR WHILE FOR TO BREAK LET IN END FUNCTION TYPE ARRAY IF THEN ELSE DO OF
+(* 标点符号 *)
 %token LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET
 %token COMMA DOT SEMICOLON COLON ASSIGN
-%token VAR WHILE FOR TO BREAK LET IN END FUNCTION TYPE ARRAY IF THEN ELSE DO OF
 %token PLUS MINUS TIMES DIVIDE
 %token OR AND EQUAL NOTEQUAL LT LE GT GE MINUS
-%token NIL
 %token<string> STRING
+
 %token<string> ID
 %token<int> INT
 
@@ -39,7 +42,7 @@
 %left TIMES DIVIDE
 
 %type<unit> prog
-%start prog
+%start<A.exp> prog
 
 %%
 
