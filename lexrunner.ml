@@ -1,7 +1,8 @@
-open Puppy_parser
+open Parser
+open Printf
 
 let rec lexing_puppy lexbuf tokens =
-    let token = puppy lexbuf in
+    let token = Lexer.puppy lexbuf in
     match token with
       | EOF -> token::tokens
       | _   -> lexing_puppy lexbuf (token::tokens)
@@ -9,13 +10,28 @@ let rec lexing_puppy lexbuf tokens =
   let rec print_tokens tokens =
     let print_token = function
     | ASSIGN            -> printf "ASSIGN, "
-    | EQUALS            -> printf "EQUALS, "
+    | EQUAL             -> printf "EQUAL, "
     | SEMICOLON         -> printf "SEMICOLON, "
     | COMMA             -> printf "COMMA, "
     | PLUS              -> printf "PLUS, "
     | MINUS             -> printf "MINUS, "
     | TIMES             -> printf "TIMES, "
     | DIVIDE            -> printf "DIVIDE, "
+    | LPAREN            -> printf "LPAREN, "
+    | RPAREN            -> printf "RPAREN, "
+    | LBRACE            -> printf "LBRACE, "
+    | RBRACE            -> printf "RBRACE, "
+    | LBRACKET          -> printf "LBRACKET, "
+    | RBRACKET          -> printf "RBRACKET, "
+    | DOT               -> printf "DOT, "
+    | COLON             -> printf "COLON, "
+    | OR                -> printf "OR, "
+    | AND               -> printf "AND, "
+    | NOTEQUAL          -> printf "NOTEQUAL, "
+    | LT                -> printf "LT, "
+    | LE                -> printf "LE, "
+    | GT                -> printf "GT, "
+    | GE                -> printf "GE, "
     | WHILE             -> printf "WHILE, "
     | FOR               -> printf "FOR, "
     | TO                -> printf "TO, "
