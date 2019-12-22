@@ -45,7 +45,9 @@ prog:
   exp EOF { $1 }
 ;
 decs:
-  | dec { $1 }
+  |     { [] }
+  | dec { $1 :: [] }
+  | decs dec { $2 :: $1 }
 ;
 dec:
   | tydec { $1 }
@@ -85,6 +87,7 @@ lvalue:
   | lvalue LBRACKET exp RBRACKET { Absyn.ArrayAccess{array = $1; exp = $3; pos = mk_pos 1} }
 ;
 exp:
+  | NIL { Absyn.NilExp(mk_pos 1) }
   | lvalue { Absyn.LValue{l = $1; pos = mk_pos 1} }
   | LPAREN expseq RPAREN { Absyn.SeqExp($2) }
   | INT { Absyn.IntExp($1) }
@@ -98,6 +101,7 @@ exp:
   | exp op exp { Absyn.OpExp{left = $1; op = $2; right = $3; pos = mk_pos 1} }
   | exp compar exp { Absyn.OpExp{left = $1; op = $2; right = $3; pos = mk_pos 1} }
   | exp boolean exp { Absyn.OpExp{left = $1; op = $2; right = $3; pos = mk_pos 1} }
+  | LET decs IN exp END { Absyn.LetExp{decs = $2; body = $4; pos = mk_pos 1} }
   | lvalue ASSIGN exp { Absyn.AssignExp{lvalue = $1; exp = $3; pos = mk_pos 1} }
   | IF exp THEN exp { Absyn.IfExp{test = $2; then' = $4; else' = None; pos = mk_pos 1} }
   | IF exp THEN exp ELSE exp { Absyn.IfExp{test = $2; then' = $4; else' = Some($6); pos = mk_pos 1} }
