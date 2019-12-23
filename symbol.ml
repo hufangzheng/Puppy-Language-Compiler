@@ -25,3 +25,11 @@
 
 (* Map 用于存储symbol * binding 对 *)
     module Table = Map.Make(Ord)
+
+    let empty = Table.empty
+
+(* 添加新的(symbol, binding)对 *)
+    let enter table (str, index) binding = Table.add (str, index) binding table
+
+(* 查找绑定 *)
+    let look table (str, index) = Table.find (str, index) table
