@@ -4,14 +4,14 @@
 
     let nextString = ref 0
 (* 哈希表用于存储string * int 对 *)
-    let table : (string, int) Hashtbl.t = Hashtbl.create 128
+    let hash_table : (string, int) Hashtbl.t = Hashtbl.create 128
 
     let symbol name =
       try
-        (name, Hashtbl.find table name)
+        (name, Hashtbl.find hash_table name)
       with Not_found ->
         nextString := !nextString + 1;
-        Hashtbl.add table name !nextString;
+        Hashtbl.add hash_table name !nextString;
         (name, !nextString)
 
     let name (s, n) = s
@@ -25,6 +25,9 @@
 
 (* Map 用于存储symbol * binding 对 *)
     module Table = Map.Make(Ord)
+
+(* 多态类型的表 *)
+    type 'a table = 'a Table.t
 
     let empty = Table.empty
 
