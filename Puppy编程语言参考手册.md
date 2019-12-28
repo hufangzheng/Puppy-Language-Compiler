@@ -49,7 +49,7 @@ tyfield -> **epsilon**
 tyfield -> id : type-id {, id : type-id }*
 
 ### 变量声明
-vardec -> **var** id **:=** exp
+vardec -> **var** id : type**:=** exp
 
 ### 函数声明
 fundec -> **fun** fun-id **(** tyfield **)** **=** exp

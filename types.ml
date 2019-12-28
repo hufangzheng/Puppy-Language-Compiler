@@ -1,7 +1,7 @@
 open Printf
 
 (* 用于判断两个record或array是否相等 *)
-type unique = unit
+type unique = unit ref
 
 type ty =
   | INT
