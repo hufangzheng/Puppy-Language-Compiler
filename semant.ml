@@ -23,8 +23,6 @@ let find_ty tenv ty_symbol =
 
 (* 检查exp的起始函数 *)
 let rec transExp venv tenv exp =
-
-(* 检查exp，避免重复传入venv和tenv环境变量，当需要改变环境变量时，递归调用transExp *)
   let rec trep = function
   | A.IntExp num           -> {exp = (); ty = Types.INT}
   | A.NilExp pos           -> {exp = (); ty = Types.NIL}
@@ -45,37 +43,20 @@ let rec transExp venv tenv exp =
       );
       {exp = (); ty = Types.INT}
   )
-  | A.LValue {l; pos} -> (
-      let rec trlval l pos = (
-      match l with
-      | A.Ident {name; pos}      -> (match (Symbol.look venv name) with
-                                   | Some(Env.VarEntry{ty}) -> {exp = (); ty = ty}
-                                   | Some(Env.FunEntry{formals; result}) -> failwith "This is a function, simple variable expected."
-                                   | None -> {exp = (); ty = Types.INT})
-      | A.RecordAccess {record; name; pos} -> (
-          let {exp; ty} = trlval record pos in
-          match ty with
-          | Types.RECORD (fields, unique) ->
-            let (s, t) = (List.find (fun (sym, ty) -> Symbol.name sym = Symbol.name name) fields) in
-            {exp = (); ty = t}
-          | _ -> failwith "This variable is not a record type."
-      )
-      | A.ArrayAccess {array; exp; pos} -> (
-          let {exp = _; ty = arrty} = trlval array pos in
-          let {exp = _; ty = indexty} = trep exp in
-            match arrty with
-            | Types.ARRAY (ty, unique) ->
-              if indexty = Types.INT then {exp = (); ty = ty}
-              else
-                failwith "The type of index of array is not int."
-            | _ -> failwith "This variable is not a array."
-      )
-      ) in trlval l pos
-      ) in
-  trep exp
+  | A.LetExp {decs; body; pos} -> check_let venv tenv decs body
+  | A.LValue {l; pos} -> trlval l
+  | A.AssignExp {lvalue; exp; pos} -> trassign venv tenv lvalue exp
+  | A.CallExp {func; args; pos} -> {exp = (); ty = Types.INT}
+  | A.RecordExp {rec_exp_fields; typ; pos} -> {exp = (); ty = Types.INT}
+  | A.SeqExp exps -> {exp = (); ty = Types.INT}
+  | A.IfExp {test; then'; else'; pos} -> {exp = (); ty = Types.INT}
+  | A.WhileExp {test; body; pos} -> {exp = (); ty = Types.INT}
+  | A.ForExp {var; lo; hi; body; pos; _} -> {exp = (); ty = Types.INT}
+  | A.BreakExp pos -> {exp = (); ty = Types.INT}
+  | A.ArrayExp {typ; size; init; pos} -> {exp = (); ty = Types.INT}
 
 (* 检查声明 transiton declartion *)
-let rec trdec venv tenv decl =
+and trdec venv tenv decl =
   match decl with
   (* 检查变量的声明 *)
   | A.VarDec {name; escape; typ; init; pos} -> (
@@ -157,3 +138,46 @@ and trans_absty_to_typesty tenv ty =
       find_ty tenv symbol
     in
     Types.ARRAY (arr_ele_ty, ref ())
+
+(* 检查Let表达式 *)
+and check_let venv tenv decls body =
+    let (venv', tenv') =
+      List.fold_left (fun (venv, tenv) decl -> trdec venv tenv decl) (venv, tenv) decls
+    in
+    transExp venv' tenv' body
+
+and trlval l = (
+      match l with
+      | A.Ident {name; pos}      -> (match (Symbol.look venv name) with
+                                   | Some(Env.VarEntry{ty}) -> {exp = (); ty = ty}
+                                   | Some(Env.FunEntry{formals; result}) -> failwith "This is a function, simple variable expected."
+                                   | None -> {exp = (); ty = Types.INT})
+      | A.RecordAccess {record; name; pos} -> (
+          let {exp; ty} = trlval record in
+          match ty with
+          | Types.RECORD (fields, unique) ->
+            let (s, t) = (List.find (fun (sym, ty) -> Symbol.name sym = Symbol.name name) fields) in
+            {exp = (); ty = t}
+          | _ -> failwith "This variable is not a record type."
+      )
+      | A.ArrayAccess {array; exp; pos} -> (
+          let {exp = _; ty = arrty} = trlval array in
+          let {exp = _; ty = indexty} = trep exp in
+            match arrty with
+            | Types.ARRAY (ty, unique) ->
+              if indexty = Types.INT then {exp = (); ty = ty}
+              else
+                failwith "The type of index of array is not int."
+            | _ -> failwith "This variable is not a array."
+      )
+      )
+
+and trassign venv tenv lvalue exp =
+  let {exp = _; ty = lvalue_ty} = trlval lvalue in
+  let {exp = _; ty = exp_ty} = transExp venv tenv exp in
+  match Types.check_ty lvalue_ty exp_ty with
+  | true -> {exp = (); ty = Types.UNIT}
+  | false -> sprintf (failwith "This expression has type %s, but type %s expected.") (Types.string_of_ty exp_ty) (Types.string_of_ty lvalue_ty)
+
+in
+trep exp
