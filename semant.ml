@@ -46,13 +46,13 @@ let rec transExp venv tenv exp =
   | A.LetExp {decs; body; pos} -> check_let venv tenv decs body
   | A.LValue {l; pos} -> trlval l
   | A.AssignExp {lvalue; exp; pos} -> trassign venv tenv lvalue exp
-  | A.CallExp {func; args; pos} -> {exp = (); ty = Types.INT}
-  | A.RecordExp {rec_exp_fields; typ; pos} -> {exp = (); ty = Types.INT}
+  | A.CallExp {func; args; pos} -> {exp = (); ty = trcall venv tenv func args}
+  | A.RecordExp {rec_exp_fields; typ = typ_id; pos} -> {exp = (); ty = trrecord venv tenv rec_exp_fields typ_id}
   | A.SeqExp exps -> {exp = (); ty = Types.INT}
   | A.IfExp {test; then'; else'; pos} -> {exp = (); ty = Types.INT}
   | A.WhileExp {test; body; pos} -> {exp = (); ty = Types.INT}
   | A.ForExp {var; lo; hi; body; pos; _} -> {exp = (); ty = Types.INT}
-  | A.BreakExp pos -> {exp = (); ty = Types.INT}
+  | A.BreakExp pos -> {exp = (); ty = Types.UNIT}
   | A.ArrayExp {typ; size; init; pos} -> {exp = (); ty = Types.INT}
 
 (* 检查声明 transiton declartion *)
@@ -178,6 +178,43 @@ and trassign venv tenv lvalue exp =
   match Types.check_ty lvalue_ty exp_ty with
   | true -> {exp = (); ty = Types.UNIT}
   | false -> sprintf (failwith "This expression has type %s, but type %s expected.") (Types.string_of_ty exp_ty) (Types.string_of_ty lvalue_ty)
+
+(* 对函数调用表达式CallExp的检查
+ * 在变量环境venv中查找函数名，并判断是否与FunEntry进行了绑定
+ * 若是，检查传入的参数的类型是否与FunEntry中的参数类型一致
+ * 若相一致，返回函数的类型
+ *)
+and trcall venv tenv func args =
+  match Symbol.look venv func with
+  | None -> failwith "This function is not exist."
+  | Some (Env.VarEntry _) -> failwith (sprintf "The %s is not a function." (Symbol.name func))
+  | Some (Env.FunEntry {formals = formals_ty; result}) ->
+    let args_ty = List.map (fun exp -> (trep exp).ty) args in
+    List.iter2
+      (fun expected actual ->
+         if not(Types.check_ty expected actual) then
+           failwith (sprintf "Argument type error.\nIn function %s: this type is %s, %s expected." (Symbol.name func) (Types.string_of_ty actual) (Types.string_of_ty expected))
+      )
+      formals_ty args_ty;
+      result
+
+(* 检查record表达式RecordExp
+ * 先在类型环境中根据typ_id检查是否存在该record变量
+ * 若存在，返回值为Types.RECORD类型，比较该类型的fields中每个数据域的类型与
+ * 表达式中的rec_fields的类型是否相同
+ * 若是，返回Types.RECORD类型
+ *)
+and trrecord venv tenv rec_fields typ_id =
+  let rec_type = find_ty tenv typ_id in
+  match rec_type with
+  | Types.RECORD (fields, unique) ->
+      let rec_act_ty = List.map (fun (symbol, exp, _) -> (trep exp).ty) rec_fields in
+      let rec_formal_ty = List.map snd fields in
+      if List.for_all2 (fun expected actual -> Types.check_ty expected actual) rec_formal_ty rec_act_ty then
+        rec_type
+      else
+        failwith "The record fields are not matched."
+  | _ -> failwith (sprintf "%s is not a record." (Symbol.name typ_id))
 
 in
 trep exp
